@@ -4,7 +4,7 @@ class Attachment < ActiveRecord::Base
 
   validates_presence_of :filename, :location, :user_id
 
-  before_destroy :delete_from_storage
+  # before_destroy :delete_from_storage
 
   alias_method :author, :user
   alias_method :author=, :user=
