@@ -1,4 +1,6 @@
 language: ruby
+rvm:
+  - 2.2.3
 cache: bundler
 sudo: false
 cache:
@@ -15,10 +17,12 @@ before_install:
   - sh -e /etc/init.d/xvfb start
 
 install:
+  - nvm install 4.2
+  - nvm use 4.2
   - bundle install --without development --deployment --jobs=3 --retry=3
   - cd lineman
   - npm install -g bower
-  - npm install -g protractor
+  - npm install -g protractor@3.0.0
   - npm install
   - bower install
   - webdriver-manager update
@@ -27,25 +31,38 @@ install:
 branches:
   only:
     - 'master'
+    - 'user-testing'
     - 'production'
     - /^[0-9]+\.[0-9]+$/
-rvm:
-  - 2.2.2
 
 before_script:
   - nohup bash -c "webdriver-manager start 2>&1 &"
   - cp config/database.yml.$DB config/database.yml
   - bundle exec rake db:setup RAILS_ENV=test
 
+after_script:
+  - bundle exec ruby lib/tasks/travis_upload_screenshots.rb
+
 script:
   - bundle exec rake travis
-  - RAILS_ENV=test bundle exec rails server &
+  - RAILS_ENV=test bundle exec rails server > /dev/null &
   - cd lineman && lineman spec-ci
   - lineman run & sleep 10
-  - lineman grunt spec-e2e
+  - node_modules/protractor/bin/protractor config/spec-e2e.coffee
+  - cd ../
 
 addons:
   postgresql: "9.4"
+  apt:
+    sources:
+      - heroku
+    packages:
+      - expect
+      - heroku-toolbelt
   code_climate:
     repo_token:
       secure: "RQcqTqhx9hhcWO97ib8s8I8m/ufPbBuKRfEEh4RHNIsBEMpqekaPNHtK+T2ym2pfbCpD+L+0bZ+nMlSCrYz0gklfNnYJlPH4/g1f0SX2OEdq2eUCi9xlRObi9ayXsz7Ujtk14mncNGx+e02TnAtEjtFBT8uyvxn8Ql4djvOTsCg="
+
+after_success:
+  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "master"       && bundle exec rake deploy:with_setup loomio-clone master
+  - test $TRAVIS_PULL_REQUEST == "false" && test $TRAVIS_BRANCH == "user-testing" && bundle exec rake deploy:with_setup loomio-test user-testing

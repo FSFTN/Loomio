@@ -16,13 +16,8 @@
     %navbar
     %ng_outlet{'ng-if' => '!pageError'}
     %error_page{'ng-if' => 'pageError', 'error' => 'pageError'}
-    %start_menu
-
-    #turn-off-angular{'aria-hidden' => 'true'}
-      =link_to t(:'angular.switch_back'), angular_url, target: "_self"
-      %br
-      =link_to t(:'angular.give_feedback'), 'https://docs.google.com/a/enspiral.com/forms/d/1JS75ZdoBiA3k7IzxDPijV4kPh1fXrmWs9A8k_WG_pyE/viewform', target: '_blank'
-      .lmo-version= link_to "v#{Loomio::Version.current}", 'https://github.com/loomio/loomio/releases', target: '_blank'
+    %start_menu{'ng-if' => 'isLoggedIn()'}
+    %angular_feedback_card
 
     :javascript
       window.Loomio = #{@appConfig.to_json.html_safe}
@@ -30,5 +25,14 @@
     = javascript_include_tag lineman_vendorjs_path
     = javascript_include_tag lineman_appjs_path
 
-    - if ENV['FAYE_URL']
-      %script{src: "#{ENV['FAYE_URL']}/client.js", type: 'text/javascript'}
+    - if Rails.application.secrets.faye_url.present?
+      %script{src: "#{Rails.application.secrets.faye_url}/client.js", type: 'text/javascript'}
+
+    - if ENV['HOSTED_BY_LOOMIO']
+      -# coming soon.. seperated metrics
+      -# :javascript
+      -#   ahoy = {visitsUrl: 'http://localhost:4000/ahoy/visits',
+      -#           eventsUrl: 'http://localhost:4000/ahoy/events'}
+      -# = javascript_include_tag 'http://localhost:4000/assets/application.js'
+      = javascript_include_tag 'angular_ahoy'
+      = render 'piwik_tracker'

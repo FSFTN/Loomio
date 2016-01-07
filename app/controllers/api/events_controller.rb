@@ -3,11 +3,8 @@ class API::EventsController < API::RestfulController
 
   private
 
-  def visible_records
-    load_and_authorize :discussion
-    resource_class.
-      includes(:user).
-      where(discussion: @discussion).sequenced
+  def accessible_records
+    load_and_authorize(:discussion).items.sequenced
   end
 
   def page_collection(collection)
@@ -21,10 +18,10 @@ class API::EventsController < API::RestfulController
   end
 
   def sequence_id_for(collection)
-    (sequence_id_for_comment(collection) if params[:comment_id].present?) || params[:from] || 0
+    sequence_id_for_comment(collection) || params[:from] || 0
   end
 
   def sequence_id_for_comment(collection)
-    collection.where(eventable_type: "Comment", eventable_id: params[:comment_id]).pluck(:sequence_id).first
+    collection.find_by(eventable_type: "Comment", eventable_id: params[:comment_id]).try(:sequence_id)
   end
 end

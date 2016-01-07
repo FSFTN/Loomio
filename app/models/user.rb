@@ -1,15 +1,13 @@
 class User < ActiveRecord::Base
   include AvatarInitials
   include ReadableUnguessableUrls
-
-  require 'net/http'
-  require 'digest/md5'
+  include MessageChannel
 
   AVATAR_KINDS = %w[initials uploaded gravatar]
   LARGE_IMAGE = 170
   MED_LARGE_IMAGE = 70
-  MEDIUM_IMAGE = 35
-  SMALL_IMAGE = 25
+  MEDIUM_IMAGE = 50
+  SMALL_IMAGE = 30
   MAX_AVATAR_IMAGE_SIZE_CONST = 10.megabytes
 
   devise :database_authenticatable, :recoverable, :registerable, :rememberable, :trackable, :omniauthable
@@ -42,6 +40,7 @@ class User < ActiveRecord::Base
 
   include Gravtastic
   gravtastic rating: :pg, default: :none
+  before_create :set_interface
 
 
   has_many :contacts, dependent: :destroy
@@ -99,6 +98,7 @@ class User < ActiveRecord::Base
   has_many :notifications, dependent: :destroy
   has_many :comments, dependent: :destroy
   has_many :attachments, dependent: :destroy
+  has_many :drafts, dependent: :destroy
 
   has_one :deactivation_response,
           class_name: 'UserDeactivationResponse',
@@ -152,10 +152,6 @@ class User < ActiveRecord::Base
 
   def is_logged_out?
     !is_logged_in?
-  end
-
-  def cached_group_ids
-    @cached_group_ids ||= group_ids
   end
 
   def top_level_groups
@@ -254,8 +250,10 @@ class User < ActiveRecord::Base
   end
 
   def deactivate!
+    former_group_ids = group_ids
     update_attributes(deactivated_at: Time.now, avatar_kind: "initials")
     memberships.update_all(archived_at: Time.now)
+    Group.where(id: former_group_ids).map(&:update_memberships_count)
     membership_requests.where("responded_at IS NULL").destroy_all
   end
 
@@ -335,10 +333,6 @@ class User < ActiveRecord::Base
     (group_ids & other_user.group_ids).present?
   end
 
-  def belongs_to_manual_subscription_group?
-    groups.manual_subscription.any?
-  end
-
   def show_start_group_button?
     !groups.cannot_start_parent_group.any?
   end
@@ -348,6 +342,12 @@ class User < ActiveRecord::Base
   end
 
   private
+  def set_interface
+    if ENV['LOOMIO_NEW_USERS_ON_BETA']
+      self.angular_ui_enabled = false
+    end
+    true
+  end
 
   def set_default_avatar_kind
     if has_gravatar?

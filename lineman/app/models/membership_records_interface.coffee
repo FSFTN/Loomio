@@ -24,7 +24,19 @@ angular.module('loomioApp').factory 'MembershipRecordsInterface', (BaseRecordsIn
       @fetch
         params:
           group_key: groupKey
-          per: options['per']
+          per: options['per'] or 30
+
+    fetchByUser: (userKey, options = {}) ->
+      @fetch
+        path: 'for_user'
+        params:
+          user_key: userKey
+          per: options['per'] or 30
+
+    addUsersToSubgroup: ({groupId, userIds}) ->
+      @remote.post 'add_to_subgroup',
+        group_id: groupId
+        user_ids: userIds
 
     makeAdmin: (membership) ->
       @remote.postMember membership.id, "make_admin"

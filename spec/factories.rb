@@ -1,4 +1,10 @@
-FactoryGirl.define do
+FactoryGirl.define do  factory :blog_story do
+    title "MyString"
+url "MyString"
+image_url "MyString"
+published_at "2015-11-18 14:28:30"
+  end
+
   factory :blacklisted_password do
     string "MyString"
   end
@@ -11,6 +17,7 @@ FactoryGirl.define do
   factory :user do
     sequence(:email) { Faker::Internet.email }
     sequence(:name) { Faker::Name.name }
+    angular_ui_enabled false
     password 'complex_password'
     time_zone "Pacific/Tarawa"
 
@@ -39,7 +46,8 @@ FactoryGirl.define do
   factory :group do
     sequence(:name) { Faker::Name.name }
     description 'A description for this group'
-    visible_to 'public'
+    group_privacy 'open'
+    discussion_privacy_options 'public_or_private'
     members_can_add_members true
     after(:create) do |group, evaluator|
       user = FactoryGirl.create(:user)
@@ -47,6 +55,7 @@ FactoryGirl.define do
       if group.parent.present?
         group.parent.admins << user
       end
+      group.subscription = build(:subscription) if group.is_parent?
       group.admins << user
       group.save!
     end
@@ -158,7 +167,6 @@ FactoryGirl.define do
     name { Faker::Name.name }
     admin_name { Faker::Name.name }
     admin_email { Faker::Internet.email }
-    payment_plan { 'subscription' }
   end
 
   factory :invitation do
@@ -185,7 +193,16 @@ FactoryGirl.define do
     fields {{ body: 'Successful translation' }}
   end
 
-  factory :search_result
+  factory :search_result do
+    discussion
+    motion
+    comment
+    discussion_blurb "discussion blurb"
+    motion_blurb "motion blurb"
+    comment_blurb "comment blurb"
+    priority 1.0
+    query "test query"
+  end
 
   factory :webhook do
     association :hookable, factory: :discussion
@@ -199,6 +216,16 @@ FactoryGirl.define do
     cover_photo_file_size { 10000 }
     cover_photo_content_type { "image/jpeg" }
     cover_photo_updated_at { 10.days.ago }
+  end
+
+  factory :subscription do
+    kind :trial
+  end
+
+  factory :draft do
+    user
+    association :draftable, factory: :discussion
+    payload {{ payload: 'payload' }}
   end
 
 end

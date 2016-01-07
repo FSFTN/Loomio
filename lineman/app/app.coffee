@@ -9,12 +9,27 @@ angular.module('loomioApp', ['ngNewRouter',
                              'angular-inview',
                              'ui.gravatar',
                              'truncate',
-                             'duScroll']).config ($httpProvider, $locationProvider, $translateProvider, markedProvider, $compileProvider) ->
+                             'duScroll',
+                             'angular-clipboard',
+                             'checklist-model',
+                             'monospaced.elastic',
+                             'angularMoment']).config ($httpProvider, $locationProvider, $translateProvider, markedProvider, $compileProvider, $animateProvider) ->
+
+  # this should make stuff faster but you need to add "animated" class to animated things.
+  # http://www.bennadel.com/blog/2935-enable-animations-explicitly-for-a-performance-boost-in-angularjs.htm
+  $animateProvider.classNameFilter( /\banimated\b/ );
 
   #configure markdown
+  applyMentionsFor = (tag, text)->
+    text = text.replace(/\[\[@([a-zA-Z0-9]+)\]\]/g, "<a class='lmo-user-mention' href='/u/$1'>@$1</a>")
+    "<#{tag}>#{text}</#{tag}>"
+
   renderer = new marked.Renderer()
   renderer.link = (href, title, text) ->
     "<a href='" + href + "' title='" + (title || text) + "' target='_blank'>" + text + "</a>";
+  renderer.paragraph = (text) -> applyMentionsFor 'p', text
+  renderer.listitem  = (text) -> applyMentionsFor 'li', text
+  renderer.tablecell = (text) -> applyMentionsFor 'td', text
 
   markedProvider.setOptions
     renderer: renderer
@@ -30,15 +45,18 @@ angular.module('loomioApp', ['ngNewRouter',
     $translateProvider.useUrlLoader("/api/v1/translations").
                        preferredLanguage(locale)
 
-    $translateProvider.useSanitizeValueStrategy('sanitizeParameters');
+    $translateProvider.useSanitizeValueStrategy('escapeParameters');
 
   # disable angular debug stuff in production
   if window.Loomio? and window.Loomio.environment == 'production'
     $compileProvider.debugInfoEnabled(false);
 
 # Finally the Application controller lives here.
-angular.module('loomioApp').controller 'ApplicationController', ($scope, $filter, $rootScope, $router, KeyEventService, ScrollService, AnalyticsService, CurrentUser, MessageChannelService, IntercomService) ->
-  IntercomService.boot()
+angular.module('loomioApp').controller 'ApplicationController', ($scope, $location, $filter, $rootScope, $router, KeyEventService, ScrollService, CurrentUser, BootService, AppConfig, ModalService, ChoosePlanModal, AbilityService) ->
+  $scope.isLoggedIn = ->
+    AbilityService.isLoggedIn()
+
+  BootService.boot() if $scope.isLoggedIn()
 
   $scope.currentComponent = 'nothing yet'
 
@@ -52,10 +70,10 @@ angular.module('loomioApp').controller 'ApplicationController', ($scope, $filter
   $scope.$on 'pageError', (event, error) ->
     $scope.pageError = error
 
-  $scope.$on 'currentUserMembershipsLoaded', ->
-    _.each CurrentUser.groups(), (group) ->
-      MessageChannelService.subscribeTo "/group-#{group.key}"
-
+  $scope.$on 'trialIsOverdue', (event, group) ->
+    if CurrentUser.id == group.creatorId and AppConfig.chargify and !AppConfig.chargify.nagCache[group.key]
+      ModalService.open ChoosePlanModal, group: -> group
+      AppConfig.chargify.nagCache[group.key] = true
 
   $scope.keyDown = (event) -> KeyEventService.broadcast event
 
@@ -72,8 +90,11 @@ angular.module('loomioApp').controller 'ApplicationController', ($scope, $filter
     {path: '/m/:key/votes/new', component: 'proposalRedirect' },
     {path: '/g/:key/memberships', component: 'membershipsPage'},
     {path: '/g/:key/membership_requests', component: 'membershipRequestsPage'},
+    {path: '/g/:key/previous_proposals', component: 'previousProposalsPage'},
     {path: '/g/:key', component: 'groupPage' },
     {path: '/g/:key/:stub', component: 'groupPage' }
+    {path: '/u/:key', component: 'userPage' }
+    {path: '/u/:key/:stub', component: 'userPage' }
   ])
 
   return

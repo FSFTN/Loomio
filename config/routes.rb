@@ -1,27 +1,8 @@
 Loomio::Application.routes.draw do
 
+  get '/development' => 'development#index'
   namespace :development do
-    get 'last_email'
-    get 'setup_dashboard'
-    get 'setup_inbox'
-    get 'setup_group'
-    get 'setup_group_for_invitations'
-    get 'setup_group_to_join'
-    get 'setup_group_with_multiple_coordinators'
-    get 'setup_discussion'
-    get 'setup_multiple_discussions'
-    get 'setup_busy_discussion'
-    get 'setup_discussion_with_comment'
-    get 'setup_proposal'
-    get 'setup_proposal_with_votes'
-    get 'setup_proposal_closing_soon'
-    get 'setup_closed_proposal'
-    get 'setup_closed_proposal_with_outcome'
-    get 'setup_membership_requests'
-    get 'setup_user_email_settings'
-    get 'setup_all_notifications'
-    get 'setup_group_with_pending_invitation'
-    get 'setup_group_with_subgroups'
+    get ':action'
   end
 
   scope '/angular', controller: 'angular', path: 'angular', as: 'angular' do
@@ -54,16 +35,22 @@ Loomio::Application.routes.draw do
   end
 
   namespace :api, path: '/api/v1', defaults: {format: :json} do
+
     resources :groups, only: [:show, :create, :update] do
       get :subgroups, on: :member
       patch :archive, on: :member
+      post :use_gift_subscription, on: :member
       post 'upload_photo/:kind', on: :member, action: :upload_photo
     end
 
+    resources :users, only: :show
+
     resources :memberships, only: [:index, :create, :update, :destroy] do
       collection do
+        post :add_to_subgroup
         post :join_group
         get :autocomplete
+        get :for_user
         get :my_memberships
         get :invitables
       end
@@ -85,9 +72,10 @@ Loomio::Application.routes.draw do
 
     resources :invitations, only: [:create, :destroy] do
       get :pending, on: :collection
+      get :shareable, on: :collection
     end
 
-    resources :profile, only: [] do
+    resources :profile, only: [:show] do
       post :update_profile, on: :collection
       post :upload_avatar, on: :collection
       post :change_password, on: :collection
@@ -95,20 +83,31 @@ Loomio::Application.routes.draw do
     end
 
     resources :events, only: :index
+    resources :drafts do
+      collection do
+        get    '/:draftable_type/:draftable_id', action: :show
+        post   '/:draftable_type/:draftable_id', action: :update
+        patch  '/:draftable_type/:draftable_id', action: :update
+      end
+    end
 
     resources :discussions, only: [:show, :index, :create, :update, :destroy] do
       patch :mark_as_read, on: :member
       patch :set_volume, on: :member
       patch :star, on: :member
       patch :unstar, on: :member
+      patch :move, on: :member
       get :dashboard, on: :collection
       get :inbox, on: :collection
     end
+
+    resources :search, only: :index
 
     resources :motions,     only: [:show, :index, :create, :update], path: :proposals do
       post :close, on: :member
       post :create_outcome, on: :member
       post :update_outcome, on: :member
+      get  :closed, on: :collection
     end
 
     resources :votes,       only: [       :index, :create, :update] do
@@ -128,7 +127,9 @@ Loomio::Application.routes.draw do
       post :vote, on: :member
     end
 
-    resource :translations, only: :show
+    resource :translations, only: :show do
+      get :inline, to: 'translations#inline'
+    end
 
     resources :notifications, only: :index do
       post :viewed, on: :collection
@@ -137,8 +138,6 @@ Loomio::Application.routes.draw do
     resources :contacts, only: :index do
       get :import, on: :collection
     end
-
-    resources :search_results, only: :index
 
     resources :contact_messages, only: :create
 
@@ -180,6 +179,7 @@ Loomio::Application.routes.draw do
   get "/explore", to: 'explore#index', as: :explore
   get "/explore/search", to: "explore#search", as: :search_explore
   get "/explore/category/:id", to: "explore#category", as: :category_explore
+  get "/browser_not_supported", to: "application#browser_not_supported"
 
   resource :search, only: :show
 
@@ -198,6 +198,10 @@ Loomio::Application.routes.draw do
     match 'mark_as_read', via: [:get, :post]
     match 'mark_all_as_read/:id', action: 'mark_all_as_read', as: :mark_all_as_read, via: [:get, :post]
     match 'unfollow', via: [:get, :post]
+  end
+
+  namespace :subscriptions do
+    post :webhook
   end
 
   resources :invitations, only: [:show, :create, :destroy]
@@ -219,6 +223,7 @@ Loomio::Application.routes.draw do
 
   get 'start_group' => 'start_group#new'
   post 'start_group' => 'start_group#create'
+  post 'enable_angular' => 'start_group#enable_angular'
 
   resources :groups, path: 'g', only: [:create, :edit, :update] do
     member do
@@ -232,6 +237,7 @@ Loomio::Application.routes.draw do
       post :edit_description
       delete :leave_group
       get :members_autocomplete
+      get :previous_proposals, action: :show
     end
 
     resources :motions,     only: [:index]
@@ -342,7 +348,7 @@ Loomio::Application.routes.draw do
 
   get '/localisation/:locale' => 'localisation#show', format: 'js'
 
-  resources :users, path: 'u', only: [:new] do
+  resources :users, path: 'u', only: [] do
     member do
       put :set_avatar_kind
       post :upload_new_avatar

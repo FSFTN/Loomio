@@ -9,9 +9,10 @@ class Invitation < ActiveRecord::Base
   extend FriendlyId
   friendly_id :token
   belongs_to :inviter, class_name: User
-  belongs_to :accepted_by, class_name: User
   belongs_to :invitable, polymorphic: true
   belongs_to :canceller, class_name: User
+
+  update_counter_cache :invitable, :invitations_count
 
   validates_presence_of :invitable, :intent
   validates_inclusion_of :invitable_type, :in => ['Group', 'Discussion']
@@ -20,7 +21,9 @@ class Invitation < ActiveRecord::Base
   before_save :ensure_token_is_present
 
   scope :not_cancelled,  -> { where(cancelled_at: nil) }
-  scope :pending, -> { not_cancelled.where(accepted_at: nil) }
+  scope :pending, -> { not_cancelled.single_use.where(accepted_at: nil) }
+  scope :shareable, -> { not_cancelled.where(single_use: false) }
+  scope :single_use, -> { not_cancelled.where(single_use: true) }
 
 
   def recipient_first_name
@@ -70,7 +73,7 @@ class Invitation < ActiveRecord::Base
   end
 
   def accepted?
-    accepted_by.present?
+    accepted_at.present?
   end
 
   def to_start_group?
@@ -79,10 +82,6 @@ class Invitation < ActiveRecord::Base
 
   def to_join_group?
     intent == 'join_group'
-  end
-
-  def to_join_discussion?
-    intent == 'join_discussion'
   end
 
   private

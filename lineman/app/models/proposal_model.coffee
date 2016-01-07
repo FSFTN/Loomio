@@ -42,10 +42,10 @@ angular.module('loomioApp').factory 'ProposalModel', (BaseModel, AppConfig) ->
       @author().name
 
     isActive: ->
-      !@closedAt?
+      !@isClosed()
 
     isClosed: ->
-      !@isActive()
+      @closedAt? or (@closingAt? and @closingAt.isBefore())
 
     uniqueVotesByUserId: ->
       votesByUserId = {}
@@ -67,7 +67,7 @@ angular.module('loomioApp').factory 'ProposalModel', (BaseModel, AppConfig) ->
 
     groupSizeWhenVoting: ->
       if @isActive()
-        @group().membersCount
+        @group().membershipsCount
       else
         @numberVoted() + parseInt(@didNotVotesCount)
 
@@ -88,6 +88,9 @@ angular.module('loomioApp').factory 'ProposalModel', (BaseModel, AppConfig) ->
         _.difference(@group().members(), @voters())
       else
         @recordStore.users.find(_.pluck(@didNotVotes(), 'userId'))
+
+    hasUndecidedMembers: ->
+      @membersNotVotedCount > 0
 
     createOutcome: =>
       @remote.postMember @id, "create_outcome",

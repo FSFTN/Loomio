@@ -2,6 +2,9 @@ module.exports = new class ThreadHelper
   load: ->
     browser.get('http://localhost:8000/development/setup_discussion')
 
+  loadWithPublicContent: ->
+    browser.get('http://localhost:8000/development/setup_public_group_with_public_content')
+
   loadWithActiveProposal: ->
     browser.get('http://localhost:8000/development/setup_proposal')
 
@@ -14,12 +17,18 @@ module.exports = new class ThreadHelper
   loadWithSetOutcome: ->
     browser.get('http://localhost:8000/development/setup_closed_proposal_with_outcome')
 
+  loadWithMultipleDiscussions: ->
+    browser.get('http://localhost:8000/development/setup_multiple_discussions')
+
   addComment: (body) ->
     @enterCommentText(body)
     @submitComment()
 
+  commentForm: ->
+    element(By.css('.comment-form__comment-field'))
+
   enterCommentText: (body) ->
-    element(By.css('.comment-form__comment-field')).sendKeys(body or 'I am a comment')
+    @commentForm().sendKeys(body or 'I am a comment')
 
   submitComment: ->
     element(By.css('.comment-form__submit-button')).click()
@@ -81,14 +90,23 @@ module.exports = new class ThreadHelper
   clickThreadOptionsDropdownEdit: ->
     element(By.css('.thread-context__dropdown-options-edit')).click()
 
+  clickThreadOptionsDropdownMove: ->
+    element(By.css('.thread-context__dropdown-options-move')).click()
+
   threadTitleInput: ->
     element(By.css('.discussion-form__title-input')).clear().sendKeys('Edited thread title')
 
-  descriptionInput: ->
+  threadDestinationInput: ->
+    element(By.css('.move-thread-form__group-dropdown'))
+
+  contextInput: ->
     element(By.css('.discussion-form__description-input'))
 
   clickUpdateThreadButton: ->
     element(By.buttonText('Update thread')).click()
+
+  clickMoveThreadButton: ->
+    element(By.buttonText('Move thread')).click()
 
   editThreadTitle: ->
     @clickThreadOptionsDropdownButton()
@@ -96,18 +114,24 @@ module.exports = new class ThreadHelper
     @threadTitleInput().clear().sendKeys('Edited thread title')
     @clickUpdateThreadButton()
 
-  editThreadDescription: ->
+  editThreadContext: ->
     @clickThreadOptionsDropdownButton()
     @clickThreadOptionsDropdownEdit()
-    @descriptionInput().clear().sendKeys('Edited thread description')
+    @contextInput().clear().sendKeys('Edited thread context')
     @clickUpdateThreadButton()
 
-  editThreadTitleAndDescription: ->
+  editThreadTitleAndContext: ->
     @clickThreadOptionsDropdownButton()
     @clickThreadOptionsDropdownEdit()
     @threadTitleInput().clear().sendKeys('New edited thread title')
-    @descriptionInput().clear().sendKeys('New edited thread description')
+    @contextInput().clear().sendKeys('New edited thread context')
     @clickUpdateThreadButton()
+
+  moveThread: (groupName) ->
+    @clickThreadOptionsDropdownButton()
+    @clickThreadOptionsDropdownMove()
+    @threadDestinationInput().sendKeys(groupName)
+    @clickMoveThreadButton()
 
   activityItemList: ->
     element(By.css('.activity-card')).getText()
@@ -119,6 +143,9 @@ module.exports = new class ThreadHelper
     @openThreadOptionsDropdown()
     element(By.css('.thread-context__dropdown-options-edit')).click()
 
+  groupTitle: ->
+    element(By.css('.group-theme__name--compact')).getText()
+
   discussionTitle: ->
     element(By.css('.thread-context')).getText()
 
@@ -127,3 +154,27 @@ module.exports = new class ThreadHelper
 
   confirmThreadDeletion: ->
     element(By.css('.delete_thread_form__submit')).click()
+
+  threadOptionsDropdown: ->
+    element(By.css('.thread-context__dropdown'))
+
+  volumeOptions: ->
+    element(By.css('.notification-volume'))
+
+  angularFeedbackCard: ->
+    element(By.css('#angular-feedback-card'))
+
+  threadVolumeCard: ->
+    element(By.css('.thread-volume-card')).getText()
+
+  clickChangeInThreadVolumeCard: ->
+    element(By.css('.thread-volume-card__change-volume-link')).click()
+
+  changeThreadVolumeToLoud: ->
+    element(By.id('volume-loud')).click()
+
+  submitChangeVolumeForm: ->
+    element(By.css('.change-volume-form__submit')).click()
+
+  signInButton: ->
+    element(By.css('.lmo-navbar__sign-in')).getText()

@@ -7,13 +7,10 @@ angular.module('loomioApp').directive 'discussionsCard', ->
     $scope.loaded = 0
     $scope.perPage = 25
     $scope.canLoadMoreDiscussions = true
-    $scope.views = {}
+    $scope.discussions = []
 
-    $scope.updateViews = (data = {}) ->
-      $scope.views.base      = ThreadQueryService.groupQuery($scope.group, { filter: 'all', queryType: 'all' })
-      $scope.views.proposals = ThreadQueryService.groupQuery($scope.group, { filter: 'show_proposals', queryType: 'important' })
-      $scope.views.starred   = ThreadQueryService.groupQuery($scope.group, { filter: ['show_starred', 'hide_proposals'], queryType: 'important' })
-      $scope.views.recent    = ThreadQueryService.groupQuery($scope.group, { filter: 'all',  queryType: 'timeframe' })
+    $scope.updateDiscussions = (data = {}) ->
+      $scope.discussions = ThreadQueryService.groupQuery($scope.group, { filter: 'all', queryType: 'all' })
       if (data.discussions or []).length < $scope.perPage
         $scope.canLoadMoreDiscussions = false
 
@@ -22,7 +19,7 @@ angular.module('loomioApp').directive 'discussionsCard', ->
         from:     $scope.loaded
         per:      $scope.perPage
       $scope.loaded += $scope.perPage
-      Records.discussions.fetchByGroup($scope.group.key, options).then $scope.updateViews
+      Records.discussions.fetchByGroup($scope.group.key, options).then $scope.updateDiscussions, -> $scope.canLoadMoreDiscussions = false
 
     LoadingService.applyLoadingFunction $scope, 'loadMore'
     $scope.loadMore()
@@ -32,10 +29,12 @@ angular.module('loomioApp').directive 'discussionsCard', ->
                         discussion: -> Records.discussions.build(groupId: $scope.group.id)
 
     $scope.showThreadsPlaceholder = ->
-      AbilityService.canAdministerGroup($scope.group) and $scope.group.discussions().length <= 1
+      AbilityService.canAdministerGroup($scope.group) and $scope.group.discussions().length < 3
 
     $scope.whyImEmpty = ->
-      if !$scope.group.hasDiscussions
+      if !AbilityService.canViewGroup($scope.group)
+        'discussions_are_private'
+      else if !$scope.group.hasDiscussions
         'no_discussions_in_group'
       else if $scope.group.discussionPrivacyOptions == 'private_only'
         'discussions_are_private'

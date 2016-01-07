@@ -4,7 +4,9 @@ class MotionService
     actor.ability.authorize! :create, motion
     return false unless motion.valid?
     motion.save!
-    ThreadSearchService.index! motion.discussion_id
+
+    Draft.purge(user: actor, draftable: motion.discussion, field: :motion)
+    SearchVector.index! motion.discussion_id
 
     event = Events::NewMotion.publish!(motion)
     DiscussionReader.for(discussion: motion.discussion, user: motion.author).author_thread_item!(motion.created_at)
@@ -23,7 +25,7 @@ class MotionService
 
     motion.save!
     event = Events::MotionEdited.publish!(motion, actor)
-    ThreadSearchService.index! motion.discussion_id
+    SearchVector.index! motion.discussion_id
     event
   end
 
@@ -44,6 +46,7 @@ class MotionService
     motion.store_users_that_didnt_vote
     motion.closed_at = Time.now
     motion.save!
+    motion.update_members_not_voted_count
 
     Events::MotionClosed.publish!(motion)
   end

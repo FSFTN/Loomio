@@ -22,6 +22,12 @@ describe Events::NewMotion do
     end
   end
 
+  describe 'channel_object' do
+    it 'uses its group as the channel to publish to' do
+      expect(Events::NewMotion.publish!(motion).send(:channel_object)).to eq discussion.group
+    end
+  end
+
   describe 'notify_webhooks!' do
 
     let(:motion) { build(:motion) }
@@ -42,15 +48,7 @@ describe Events::NewMotion do
       @event.reload.send(:notify_webhooks!)
     end
 
-    it 'calls publish with the eventable''s parent group' do
-      parent = @event.eventable.group.parent = create(:group)
-      @event.eventable.group.update is_visible_to_parent_members: true
-      webhook = create :webhook, hookable: parent
-      expect(WebhookService).to receive(:publish!).with({ event: @event, webhook: webhook })
-      @event.reload.send(:notify_webhooks!)
-    end
-
-    it 'calls publish with the eventable''s parent group' do
+    it 'does not call publish with the eventable''s parent group when not visible to parent members' do
       parent = @event.eventable.group.parent = create(:group)
       webhook = create :webhook, hookable: parent
       expect(WebhookService).not_to receive(:publish!).with({ event: @event, webhook: webhook })

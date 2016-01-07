@@ -22,6 +22,12 @@ describe 'MotionService' do
       MotionService.create(motion: motion, actor: user)
     end
 
+    it 'clears out the draft' do
+      draft = create(:draft, user: user, draftable: motion.discussion, payload: { motion: { name: 'name draft' } })
+      MotionService.create(motion: motion, actor: user)
+      expect(draft.reload.payload['comment']).to be_blank
+    end
+
     context "motion is valid" do
 
       it "saves the motion" do
@@ -30,7 +36,7 @@ describe 'MotionService' do
       end
 
       it "syncs the discussion's search vector" do
-        expect(ThreadSearchService).to receive(:index!).with(motion.discussion_id)
+        expect(SearchVector).to receive(:index!).with(motion.discussion_id)
         MotionService.create(motion: motion, actor: user)
       end
 

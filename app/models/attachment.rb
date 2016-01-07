@@ -24,22 +24,20 @@ class Attachment < ActiveRecord::Base
   end
 
   def filetype
-    filename.split('.').last.downcase
+    (file_content_type.try(:split, '/') || filename.try(:split, '.')).last.downcase
   end
 
-  def delete_from_storage
-    storage = Fog::Storage.new({aws_access_key_id: Rails.application.secrets.aws_access_key_id,
-                                aws_secret_access_key: Rails.application.secrets.aws_secret_access_key,
-                                provider: 'AWS'})
-
-    bucket = storage.directories.get(Rails.application.secrets.aws_bucket)
-    filename = URI.decode(URI(URI.encode(self.location)).path).gsub(/^\//, '')
-    file = bucket.files.get(filename)
-
-    file.destroy if file
-    true # return no true no matter what.
+  def filename
+    super || file_file_name
   end
+
+  def filesize
+    super || file_file_size
+  end
+
+  def location
+    self[:location] || file.url(:original)
+  end
+  alias :original :location
 
 end
-
-

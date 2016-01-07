@@ -3,6 +3,7 @@ module.exports = require(process.env["LINEMAN_MAIN"]).config.extend "files",
     dest: "generated/angular/template-cache.js"
 
   sass:
+    main:  ['app/css/*.scss']
     app:   ['app/components/**/*.scss']
 
   css:
@@ -28,6 +29,7 @@ module.exports = require(process.env["LINEMAN_MAIN"]).config.extend "files",
              "vendor/bower_components/angular-marked/angular-marked.js",
              "vendor/bower_components/ng-file-upload/angular-file-upload.js",
              "vendor/bower_components/ment.io/dist/mentio.js",
+             "vendor/bower_components/angular-moment/angular-moment.js",
              "vendor/js/private_pub.js",
              "vendor/bower_components/angular-animate/angular-animate.js",
              "vendor/bower_components/lokijs/src/lokijs.js",
@@ -38,4 +40,7 @@ module.exports = require(process.env["LINEMAN_MAIN"]).config.extend "files",
              "vendor/bower_components/angular-scroll/angular-scroll.js",
              "vendor/bower_components/svg.js/dist/svg.js",
              "vendor/bower_components/jstimezonedetect/jstz.js",
-             "node_modules/angular_record_store/dist/standalone.js" ]
+             "node_modules/angular_record_store/dist/standalone.js",
+             "vendor/bower_components/angular-elastic/elastic.js",
+             "vendor/bower_components/checklist-model/checklist-model.js",
+             "vendor/bower_components/angular-clipboard/angular-clipboard.js"]

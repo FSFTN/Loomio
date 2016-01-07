@@ -1,10 +1,10 @@
 source 'http://rubygems.org'
 
-ruby '2.2.2'
+ruby '2.2.3'
 gem 'mime-types', '~> 2.6.1', require: 'mime/types/columnar'
-gem 'rails', '~> 4.2.3'
+gem 'rails', '~> 4.2.5'
 gem 'rake'
-gem 'pg', '~> 0.18.2'
+gem 'pg', '~> 0.18.3'
 gem 'pg_search', '~> 1.0.4'
 gem 'haml-rails', '~> 0.9.0'
 gem 'devise', '~> 3.4.1'
@@ -21,7 +21,6 @@ gem 'jquery-rails', '~> 4.0.3'
 gem 'jquery-ui-rails', '~> 5.0.0'
 gem 'simple_form', '3.1.0'
 gem 'cancancan'
-gem 'rmagick', '~> 2.15.0'
 gem 'gravtastic'
 gem 'paperclip', '~> 4.2.4'
 gem 'kaminari'
@@ -66,14 +65,9 @@ gem 'rack-attack', '~> 4.2.0'
 gem 'ahoy_matey'
 gem 'oj'
 gem 'oj_mimic_json'
-# might need this
-#gem 'activeuuid', '>= 0.5.0'
-
-gem 'snorlax'
-
-# consider uncommenting these when we want to mess around with json parsing
-#gem 'oj'
-#gem 'oj_mimic_json'
+gem 'simple-rss'
+gem 'snorlax', '~> 0.1.3'
+gem 'custom_counter_cache'
 
 group :development, :test do
   gem 'minitest'
@@ -98,16 +92,13 @@ group :development do
   gem 'spring'
   gem "spring-commands-cucumber"
   gem "spring-commands-rspec"
-  #gem 'bullet'
+  gem 'bullet'
   gem 'launchy'
   gem 'awesome_print'
-  #gem 'quiet_assets'
-  #gem 'meta_request'
-  #gem 'better_errors'
-  #gem 'binding_of_caller'
 end
 
 group :test do
+  gem 's3_uploader'
   gem 'cucumber-rails', require: false
   gem 'email_spec'
   gem 'poltergeist'

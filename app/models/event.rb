@@ -5,6 +5,22 @@ class Event < ActiveRecord::Base
              membership_requested invitation_accepted user_added_to_group user_joined_group
              membership_request_approved comment_liked comment_replied_to user_mentioned]
 
+  GROUP_KINDS = %w(new_discussion
+                   new_motion
+                   new_comment
+                   new_vote
+                   comment_replied_to
+                   discussion_title_edited
+                   motion_close_date_edited
+                   motion_closed
+                   motion_closed_by_user
+                   motion_name_edited)
+
+  DISCUSSION_KINDS = %w(discussion_description_edited
+                        motion_description_edited)
+
+  COMMENT_KINDS = %w(comment_liked)
+
   has_many :notifications, dependent: :destroy
   belongs_to :eventable, polymorphic: true
   belongs_to :discussion
@@ -35,18 +51,23 @@ class Event < ActiveRecord::Base
   end
 
   def publish_message
-    MessageChannelService.publish_event(self)
+    MessageChannelService.publish(EventSerializer.new(self).as_json, to: channel_object)
   end
 
   def notify_webhooks!
-    group = self.discussion.group
-    self.discussion.webhooks.each { |webhook| WebhookService.publish! webhook: webhook, event: self }
-    group.webhooks.each           { |webhook| WebhookService.publish! webhook: webhook, event: self }
-    group.parent.webhooks.each    { |webhook| WebhookService.publish! webhook: webhook, event: self } if group.is_subgroup? && group.is_visible_to_parent_members
+    self.discussion.webhooks.each       { |webhook| WebhookService.publish! webhook: webhook, event: self }
+    self.discussion.group.webhooks.each { |webhook| WebhookService.publish! webhook: webhook, event: self }
   end
   handle_asynchronously :notify_webhooks!
 
   private
+
+  def channel_object
+    if    GROUP_KINDS.include?      self.kind then self.eventable.group
+    elsif DISCUSSION_KINDS.include? self.kind then self.eventable
+    elsif COMMENT_KINDS.include?    self.kind then self.eventable.comment.discussion
+    end
+  end
 
   def call_thread_item_created
     discussion.thread_item_created!(self) if discussion_id.present?

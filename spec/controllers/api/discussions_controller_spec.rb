@@ -7,8 +7,10 @@ describe API::DiscussionsController do
   let(:another_user) { create :user }
   let(:group) { create :group }
   let(:discussion) { create :discussion, group: group }
+  let(:reader) { DiscussionReader.for(user: user, discussion: discussion) }
   let(:another_discussion) { create :discussion }
   let(:comment) { create :comment, discussion: discussion}
+  let(:new_comment) { build(:comment, discussion: discussion) }
   let(:proposal) { create :motion, discussion: discussion, author: user }
   let(:discussion_params) {{
     title: 'Did Charlie Bite You?',
@@ -22,8 +24,61 @@ describe API::DiscussionsController do
     sign_in user
   end
 
+  describe 'inbox' do
+    context 'logged out' do
+      before { @controller.stub(:current_user).and_return(LoggedOutUser.new) }
+
+      it 'responds with forbidden for logged out users' do
+        get :inbox
+        expect(response.status).to eq 403
+      end
+    end
+
+    before do
+      reader.viewed!
+      group.add_member! another_user
+    end
+
+    it 'returns unread threads' do
+      CommentService.create(comment: new_comment, actor: another_user)
+      get :inbox
+      json = JSON.parse(response.body)
+      discussion_ids = json['discussions'].map { |d| d['id'] }
+      expect(discussion_ids).to include discussion.id
+    end
+
+    it 'does not return read threads' do
+      get :inbox
+      json = JSON.parse(response.body)
+      expect(json['discussions']).to be_blank
+    end
+
+    it 'does not return threads in muted discussions' do
+      CommentService.create(comment: new_comment, actor: another_user)
+      DiscussionService.update_reader(discussion: discussion, params: { volume: :mute}, actor: user)
+      get :inbox
+      json = JSON.parse(response.body)
+      expect(json['discussions']).to be_blank
+    end
+
+    it 'does not return threads in muted groups' do
+      CommentService.create(comment: new_comment, actor: another_user)
+      Membership.find_by(user: user, group: group).set_volume! :mute
+      get :inbox
+      json = JSON.parse(response.body)
+      expect(json['discussions']).to be_blank
+    end
+  end
 
   describe 'dashboard' do
+    context 'logged out' do
+      before { @controller.stub(:current_user).and_return(LoggedOutUser.new) }
+
+      it 'responds with forbidden for logged out users' do
+        get :dashboard
+        expect(response.status).to eq 403
+      end
+    end
 
     describe 'filtering' do
       let(:participating_discussion) { create :discussion, group: group }
@@ -156,6 +211,25 @@ describe API::DiscussionsController do
       json = JSON.parse(response.body)
       expect(json['discussions'][0]['starred']).to eq true
     end
+
+    context 'logged out' do
+      before { @controller.stub(:current_user).and_return(LoggedOutUser.new) }
+      let(:public_discussion) { create :discussion, private: false }
+      let(:private_discussion) { create :discussion, private: true }
+
+      it 'returns a public discussions' do
+        get :show, id: public_discussion.id, format: :json
+        json = JSON.parse(response.body)
+        discussion_ids = json['discussions'].map { |d| d['id'] }
+        expect(discussion_ids).to_not include private_discussion.id
+        expect(discussion_ids).to include public_discussion.id
+      end
+
+      it 'returns unauthorized for a private discussion' do
+        get :show, id: private_discussion.id, format: :json
+        expect(response.status).to eq 403
+      end
+    end
   end
 
   describe 'mark_as_read' do
@@ -164,7 +238,7 @@ describe API::DiscussionsController do
     before do
       group.add_admin! user
       sign_in user
-      reader.save
+      reader.update(volume: DiscussionReader.volumes[:normal])
       reader.reload
     end
 
@@ -195,10 +269,28 @@ describe API::DiscussionsController do
       reader.reload
 
       expect(json['discussions'][0]['discussion_reader_id']).to eq reader.id
+      expect(json['discussions'][0]['discussion_reader_volume']).to eq reader.discussion_reader_volume
       expect(json['discussions'][0]['starred']).to eq reader.starred
-      expect(json['discussions'][0]['volume']).to eq reader.volume
       expect(json['discussions'][0]['last_read_sequence_id']).to eq reader.last_read_sequence_id
       expect(json['discussions'][0]['participating']).to eq reader.participating
+    end
+  end
+
+  describe 'move' do
+    context 'success' do
+      it 'moves a discussion' do
+        another_group.users << user
+        patch :move, id: discussion.id, group_id: another_group.id, format: :json
+
+        json = JSON.parse(response.body)
+        discussion_ids = json['discussions'].map { |d| d['id'] }
+        discussion_group_ids = json['discussions'].map { |d| d['group_id'] }
+        group_ids = json['groups'].map { |g| g['id'] }
+
+        expect(discussion_ids).to include discussion.id
+        expect(group_ids).to include another_group.id
+        expect(discussion_group_ids).to include another_group.id
+      end
     end
   end
 
@@ -207,6 +299,20 @@ describe API::DiscussionsController do
 
     before do
       discussion; another_discussion
+    end
+
+    context 'logged out' do
+      before { @controller.stub(:current_user).and_return(LoggedOutUser.new) }
+      let!(:public_discussion) { create :discussion, private: false }
+      let!(:private_discussion) { create :discussion, private: true }
+
+      it 'returns a list of public discussions' do
+        get :index, format: :json
+        json = JSON.parse(response.body)
+        discussion_ids = json['discussions'].map { |d| d['id'] }
+        expect(discussion_ids).to_not include private_discussion.id
+        expect(discussion_ids).to include public_discussion.id
+      end
     end
 
     context 'success' do

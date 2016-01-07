@@ -1,21 +1,29 @@
 class API::DiscussionsController < API::RestfulController
-  load_and_authorize_resource only: [:show, :mark_as_read]
+  load_and_authorize_resource only: [:show, :mark_as_read, :move]
   load_resource only: [:create, :update, :star, :unstar, :set_volume]
   include UsesDiscussionReaders
 
   def index
+    load_and_authorize(:group, optional: true)
     instantiate_collection { |collection| collection.sorted_by_importance }
     respond_with_collection
   end
 
   def dashboard
+    raise CanCan::AccessDenied.new unless current_user.is_logged_in?
     instantiate_collection { |collection| collection_for_dashboard collection }
     respond_with_collection
   end
 
   def inbox
+    raise CanCan::AccessDenied.new unless current_user.is_logged_in?
     instantiate_collection { |collection| collection_for_inbox collection }
     respond_with_collection
+  end
+
+  def move
+    service.move discussion: resource, params: params, actor: current_user
+    respond_with_resource
   end
 
   def mark_as_read
@@ -40,14 +48,8 @@ class API::DiscussionsController < API::RestfulController
 
   private
 
-  def visible_records
-    Queries::VisibleDiscussions.new(user: current_user, groups: visible_groups)
-  end
-
-  def visible_groups
-    return current_user.groups unless params[:group_id] || params[:group_key]
-    load_and_authorize :group
-    [@group, @group.subgroups].flatten
+  def accessible_records
+    Queries::VisibleDiscussions.new(user: current_user, group_ids: @group && @group.id_and_subgroup_ids)
   end
 
   def collection_for_dashboard(collection, filter: params[:filter])

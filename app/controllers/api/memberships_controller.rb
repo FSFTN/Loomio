@@ -1,5 +1,26 @@
 class API::MembershipsController < API::RestfulController
 
+  def add_to_subgroup
+    group = load_and_authorize(:group)
+    users = group.parent.members.where('users.id': params[:user_ids])
+    @memberships = MembershipService.add_users_to_group(users: users,
+                                                        group: group,
+                                                        inviter: current_user)
+    respond_with_collection
+  end
+
+  def index
+    load_and_authorize :group
+    instantiate_collection { |collection| collection.active.where(group_id: @group.id).order('users.name') }
+    respond_with_collection
+  end
+
+  def for_user
+    load_and_authorize :user
+    instantiate_collection { |collection| collection.where(user_id: @user.id).order('groups.full_name') }
+    respond_with_collection
+  end
+
   def join_group
     @group = Group.find(params[:group_id])
     event = MembershipService.join_group group: @group, actor: current_user
@@ -9,11 +30,11 @@ class API::MembershipsController < API::RestfulController
 
   def invitables
     @memberships = page_collection visible_invitables
-    respond_with_collection scope: { q: params[:q] }
+    respond_with_collection scope: { q: params[:q], include_inviter: false }
   end
 
   def my_memberships
-    @memberships = current_user.memberships.includes(:group, :user, :inviter)
+    @memberships = current_user.memberships.includes(:user, :inviter)
     respond_with_collection
   end
 
@@ -42,18 +63,17 @@ class API::MembershipsController < API::RestfulController
 
   private
 
-  def visible_records
-    load_and_authorize :group
-    Queries::VisibleMemberships.new(user: current_user, group: @group)
+  def accessible_records
+    visible = resource_class.joins(:group).includes(:user, :inviter, {group: [:parent, :subscription]})
+    if current_user.group_ids.any?
+      visible.where("group_id IN (#{current_user.group_ids.join(',')}) OR groups.is_visible_to_public = 't'")
+    else
+      visible.where("groups.is_visible_to_public = 't'")
+    end
   end
 
   def visible_invitables
     load_and_authorize :group, :invite_people
     Queries::VisibleInvitableMemberships.new(group: @group, user: current_user, query: params[:q])
   end
-
-  def default_page_size
-    5
-  end
-
 end

@@ -33,6 +33,28 @@ describe Motion do
     end
   end
 
+  describe "must close in future" do
+    let(:motion) { build(:motion, discussion: discussion) }
+    it "is invalid if closing in past" do
+      motion.closing_at = 1.day.ago
+      motion.valid?
+      expect(motion.errors.keys).to eq [:closing_at]
+    end
+
+    it "is valid if closing in future" do
+      motion.closing_at = 1.day.from_now
+      motion.valid?
+      expect(motion.errors.keys).to eq []
+    end
+
+    it "closing at can be in past if already closed" do
+      motion.closing_at = 1.day.ago
+      motion.closed_at = 1.day.ago
+      motion.valid?
+      expect(motion.errors.keys).to eq []
+    end
+  end
+
   describe "#user_has_voted?(user)" do
     it "returns true if the given user has voted on motion" do
       @user = create(:user)
@@ -77,12 +99,18 @@ describe Motion do
     end
 
     context "for a closed motion" do
-      before { MotionService.close(motion) }
+      before do
+        5.times { motion.group.add_member! create(:user) }
+        MotionService.close(motion)
+      end
 
       it "returns the number of members who did not vote" do
-        motion.should be_closed
-        motion.stub(:did_not_voters).and_return((1..99).to_a)
-        expect(motion.members_not_voted_count).to eq 99
+        expect(motion.closed?).to eq true
+        expect(motion.members_not_voted_count).to eq motion.group.members.count
+      end
+
+      it 'does not count members added after voting closed' do
+        expect { motion.group.add_member! create(:user) }.to_not change { motion.reload.members_not_voted_count }
       end
     end
   end
